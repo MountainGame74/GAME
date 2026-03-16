@@ -1,34 +1,27 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
-// --- CHARGEMENT DE L'IMAGE ---
-const sprite = new Image();
-sprite.crossOrigin = "Anonymous"; 
-sprite.src = 'https://raw.githubusercontent.com/wayou/t-rex-runner/master/assets/default_100_percent/100-offline-sprite.png';
-
-// --- VARIABLES DU JEU ---
-let gameSpeed = 6;
-let isGameOver = false;
+// --- RÉGLAGES ---
 let score = 0;
-let frame = 0;
-let groundX = 0;
+let gameSpeed = 5;
+let isGameOver = false;
+let gravity = 0.6;
+let frames = 0;
+let obstacles = [];
 
+// --- LE DINO (Carré Gris Chrome) ---
 let dino = {
     x: 50,
     y: 150,
-    width: 44,
-    height: 47,
+    width: 40,
+    height: 40,
     dy: 0,
     jumpForce: 12,
-    gravity: 0.6,
-    grounded: false,
-    animFrame: 0
+    grounded: false
 };
 
-let obstacles = [];
-
 // --- CONTRÔLES ---
-function handleInput() {
+function jump() {
     if (isGameOver) {
         resetGame();
     } else if (dino.grounded) {
@@ -37,39 +30,38 @@ function handleInput() {
     }
 }
 
-window.addEventListener('keydown', (e) => { if (e.code === 'Space' || e.code === 'ArrowUp') handleInput(); });
-window.addEventListener('touchstart', (e) => { handleInput(); e.preventDefault(); }, {passive: false});
-window.addEventListener('mousedown', handleInput);
+window.addEventListener('keydown', (e) => { if (e.code === "Space") jump(); });
+window.addEventListener('mousedown', jump);
+window.addEventListener('touchstart', (e) => { jump(); e.preventDefault(); }, {passive: false});
 
 function resetGame() {
     score = 0;
-    gameSpeed = 6;
+    gameSpeed = 5;
     obstacles = [];
     isGameOver = false;
     dino.y = 150;
     dino.dy = 0;
-    frame = 0;
+    frames = 0;
     gameLoop();
 }
 
 function spawnObstacle() {
-    let type = Math.random() > 0.5 
-        ? {w: 25, h: 50, sx: 446}  // Petit cactus
-        : {w: 50, h: 50, sx: 652}; // Gros cactus
-    obstacles.push({ x: canvas.width, y: 150, ...type });
+    let height = 20 + Math.random() * 40;
+    obstacles.push({
+        x: canvas.width,
+        y: 190 - height,
+        width: 20,
+        height: height
+    });
 }
 
-// --- BOUCLE PRINCIPALE ---
 function gameLoop() {
-    if (isGameOver) {
-        draw(); // On dessine une dernière fois pour l'écran de fin
-        return;
-    }
+    if (isGameOver) return;
 
-    frame++;
+    frames++;
 
-    // 1. Physique du Dino
-    dino.dy += dino.gravity;
+    // 1. PHYSIQUE
+    dino.dy += gravity;
     dino.y += dino.dy;
     if (dino.y > 150) {
         dino.y = 150;
@@ -77,30 +69,27 @@ function gameLoop() {
         dino.grounded = true;
     }
 
-    // 2. Animation (pattes du dino)
-    if (frame % 8 === 0) dino.animFrame = dino.animFrame === 0 ? 1 : 0;
+    // 2. OBSTACLES (Apparition plus fluide)
+    if (frames % 100 === 0) { // Un obstacle toutes les 100 frames environ
+        spawnObstacle();
+    }
 
-    // 3. Sol et Obstacles
-    groundX -= gameSpeed;
-    if (groundX <= -600) groundX = 0;
-
-    if (frame % 100 === 0) spawnObstacle();
-
-    obstacles.forEach((obs, i) => {
+    obstacles.forEach((obs, index) => {
         obs.x -= gameSpeed;
-        
-        // Collision (un peu réduite pour être juste)
-        if (dino.x + 5 < obs.x + obs.w - 5 &&
-            dino.x + dino.width - 5 > obs.x + 5 &&
-            dino.y + 5 < obs.y + obs.h - 5 &&
-            dino.y + dino.height - 5 > obs.y + 5) {
+
+        // Collision
+        if (dino.x < obs.x + obs.width &&
+            dino.x + dino.width > obs.x &&
+            dino.y < obs.y + obs.height &&
+            dino.y + dino.height > obs.y) {
             isGameOver = true;
         }
 
-        if (obs.x + obs.w < 0) {
-            obstacles.splice(i, 1);
+        // Score et nettoyage
+        if (obs.x + obs.width < 0) {
+            obstacles.splice(index, 1);
             score++;
-            gameSpeed += 0.05;
+            if (score % 5 === 0) gameSpeed += 0.2; // Accélère tous les 5 points
         }
     });
 
@@ -109,63 +98,43 @@ function gameLoop() {
 }
 
 function draw() {
+    // Fond
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Sol (Ligne grise)
+    ctx.strokeStyle = "#535353";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(0, 190);
+    ctx.lineTo(canvas.width, 190);
+    ctx.stroke();
 
-    // DESSIN DU SOL
-    if (sprite.complete && sprite.width > 0) {
-        ctx.drawImage(sprite, 2, 54, 1200, 12, groundX, 185, 1200, 12);
-        ctx.drawImage(sprite, 2, 54, 1200, 12, groundX + 1200, 185, 1200, 12);
-    } else {
-        ctx.fillStyle = "#535353";
-        ctx.fillRect(0, 185, canvas.width, 2);
-    }
+    // Dino (Carré Gris Foncé)
+    ctx.fillStyle = "#535353";
+    ctx.fillRect(dino.x, dino.y, dino.width, dino.height);
 
-    // DESSIN DU DINO
-    if (sprite.complete && sprite.width > 0) {
-        let dinoSX = 1338; // Statique / Saut
-        if (isGameOver) dinoSX = 1514;
-        else if (!dino.grounded) dinoSX = 1338;
-        else dinoSX = 1514 + (dino.animFrame * 88);
-        
-        ctx.drawImage(sprite, dinoSX, 2, 88, 94, dino.x, dino.y, dino.width, dino.height);
-    } else {
-        ctx.fillStyle = "#535353";
-        ctx.fillRect(dino.x, dino.y, dino.width, dino.height);
-    }
-
-    // DESSIN DES OBSTACLES
+    // Obstacles (Carrés Gris un peu plus clairs)
+    ctx.fillStyle = "#707070";
     obstacles.forEach(obs => {
-        if (sprite.complete && sprite.width > 0) {
-            ctx.drawImage(sprite, obs.sx, 2, obs.w*2, obs.h*2, obs.x, obs.y, obs.w, obs.h);
-        } else {
-            ctx.fillStyle = "red";
-            ctx.fillRect(obs.x, obs.y, obs.w, obs.h);
-        }
+        ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
     });
 
-    // SCORE
-    ctx.fillStyle = '#535353';
-    ctx.font = '20px "Courier New"';
+    // Score
+    ctx.fillStyle = "#535353";
+    ctx.font = "20px Courier New";
     ctx.fillText(score.toString().padStart(5, '0'), 520, 30);
 
     if (isGameOver) {
+        ctx.fillStyle = "rgba(0,0,0,0.1)";
+        ctx.fillRect(0,0, canvas.width, canvas.height);
+        ctx.fillStyle = "#535353";
         ctx.textAlign = "center";
-        if (sprite.complete && sprite.width > 0) {
-            ctx.drawImage(sprite, 954, 29, 381, 21, canvas.width/2 - 95, 80, 190, 11);
-        } else {
-            ctx.fillText("GAME OVER", canvas.width/2, 80);
-        }
-        ctx.font = "14px Arial";
-        ctx.fillText("CLIQUE OU ESPACE POUR REJOUER", canvas.width/2, 110);
+        ctx.fillText("GAME OVER", canvas.width/2, 100);
+        ctx.font = "14px Courier New";
+        ctx.fillText("CLIQUE OU ESPACE POUR RECOMMENCER", canvas.width/2, 130);
         ctx.textAlign = "start";
     }
 }
 
-// Lancement
-if (sprite.complete) {
-    gameLoop();
-} else {
-    sprite.onload = gameLoop;
-    // Si l'image ne charge pas après 2 secondes, on lance quand même avec les carrés
-    setTimeout(() => { if (frame === 0) gameLoop(); }, 2000);
-}
+// Lancer le jeu
+gameLoop();
