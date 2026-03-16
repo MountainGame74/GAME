@@ -1,91 +1,113 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
-// --- Variables Globales ---
-let score = 0;
-let gameSpeed = 5;
+// Chargement de l'image (Sprite Sheet officielle)
+const sprite = new Image();
+sprite.src = 'https://raw.githubusercontent.com/wayou/t-rex-runner/master/assets/default_100_percent/100-offline-sprite.png';
+
+let gameSpeed = 6;
 let isGameOver = false;
+let score = 0;
+let frame = 0;
 
-// --- Le Dino ---
-let dino = { x: 50, y: 150, width: 40, height: 40, dy: 0, jumpForce: 12, grounded: false };
-let gravity = 0.6;
+// Configuration du Dino
+let dino = {
+    x: 50, y: 150, width: 44, height: 47,
+    dy: 0, jumpForce: 12, gravity: 0.6,
+    grounded: false,
+    status: 'running', // running, jumping, crashed
+    animFrame: 0
+};
 
-// --- Les Obstacles (Tableau pour en avoir plusieurs) ---
 let obstacles = [];
+let groundX = 0;
 
-function spawnObstacle() {
-    let size = 20 + Math.random() * 30; // Taille aléatoire
-    obstacles.push({ x: canvas.width, y: 190 - size, width: 20, height: size });
-}
-
-// --- Contrôles ---
-window.addEventListener('keydown', (e) => {
-    if (e.code === "Space") {
-        if (isGameOver) {
-            resetGame(); // Recommencer si on a perdu
-        } else if (dino.grounded) {
-            dino.dy = -dino.jumpForce;
-            dino.grounded = false;
-        }
+// --- INPUTS ---
+function handleInput() {
+    if (isGameOver) { resetGame(); }
+    else if (dino.grounded) {
+        dino.dy = -dino.jumpForce;
+        dino.grounded = false;
     }
-});
+}
+window.addEventListener('keydown', (e) => { if (e.code === 'Space' || e.code === 'ArrowUp') handleInput(); });
+window.addEventListener('touchstart', handleInput);
 
 function resetGame() {
-    score = 0;
-    obstacles = [];
-    isGameOver = false;
-    gameLoop();
+    score = 0; gameSpeed = 6; obstacles = []; isGameOver = false;
+    dino.y = 150; dino.dy = 0;
+    requestAnimationFrame(update);
 }
 
-function gameLoop() {
-    if (isGameOver) return; // Arrête la boucle si on perd
+function spawnObstacle() {
+    // Choisit au hasard entre un petit ou un grand cactus sur la sprite sheet
+    let type = Math.random() > 0.5 ? {w: 25, h: 50, sx: 446} : {w: 50, h: 50, sx: 652};
+    obstacles.push({ x: canvas.width, y: 150, ...type });
+}
 
-    // 1. PHYSIQUE DU DINO
-    dino.dy += gravity;
+function update() {
+    if (isGameOver) return;
+    frame++;
+
+    // 1. Physique Dino
+    dino.dy += dino.gravity;
     dino.y += dino.dy;
     if (dino.y > 150) { dino.y = 150; dino.dy = 0; dino.grounded = true; }
 
-    // 2. GESTION DES OBSTACLES
-    if (Math.random() < 0.02) spawnObstacle(); // 2% de chance par image d'en créer un
+    // 2. Animation Dino (change de patte toutes les 10 frames)
+    if (frame % 10 === 0) dino.animFrame = dino.animFrame === 0 ? 1 : 0;
 
-    obstacles.forEach((obs, index) => {
-        obs.x -= gameSpeed; // Déplace vers la gauche
+    // 3. Sol et Obstacles
+    groundX -= gameSpeed;
+    if (groundX <= -600) groundX = 0;
 
-        // DETECTION DE COLLISION (AABB Collision)
-        if (dino.x < obs.x + obs.width &&
-            dino.x + dino.width > obs.x &&
-            dino.y < obs.y + obs.height &&
-            dino.y + dino.height > obs.y) {
+    if (frame % 100 === 0) spawnObstacle();
+
+    obstacles.forEach((obs, i) => {
+        obs.x -= gameSpeed;
+        
+        // Collision
+        if (dino.x < obs.x + obs.w - 5 && dino.x + dino.width - 5 > obs.x &&
+            dino.y < obs.y + obs.h - 5 && dino.y + dino.height - 5 > obs.y) {
             isGameOver = true;
         }
-
-        if (obs.x + obs.width < 0) { // Supprime si sorti de l'écran
-            obstacles.splice(index, 1);
-            score++;
-        }
+        if (obs.x + obs.w < 0) { obstacles.splice(i, 1); score++; gameSpeed += 0.1; }
     });
 
-    // 3. DESSIN
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    // Dino
-    ctx.fillStyle = "#535353";
-    ctx.fillRect(dino.x, dino.y, dino.width, dino.height);
+    draw();
+    requestAnimationFrame(update);
+}
 
-    // Obstacles
-    ctx.fillStyle = "red";
-    obstacles.forEach(obs => ctx.fillRect(obs.x, obs.y, obs.width, obs.height));
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Dessiner le Sol (sx: 2, sy: 54 sur la sprite sheet)
+    ctx.drawImage(sprite, 2, 54, 1200, 12, groundX, 185, 1200, 12);
+    ctx.drawImage(sprite, 2, 54, 1200, 12, groundX + 1200, 185, 1200, 12);
+
+    // Dessiner le Dino
+    let dinoSX = 1338; // Position du Dino statique
+    if (isGameOver) dinoSX = 1514;
+    else if (!dino.grounded) dinoSX = 1338;
+    else dinoSX = 1514 + (dino.animFrame * 88); // Alterne entre les deux frames de course
+
+    ctx.drawImage(sprite, dinoSX, 2, 88, 94, dino.x, dino.y, dino.width, dino.height);
+
+    // Dessiner Obstacles (Cactus)
+    obstacles.forEach(obs => {
+        ctx.drawImage(sprite, obs.sx, 2, obs.w*2, obs.h*2, obs.x, obs.y, obs.w, obs.h);
+    });
 
     // Score
-    ctx.fillStyle = "black";
-    ctx.font = "20px Arial";
-    ctx.fillText("Score: " + score, 10, 30);
+    ctx.fillStyle = '#535353';
+    ctx.font = '16px "Press Start 2P", Courier';
+    ctx.fillText(score.toString().padStart(5, '0'), 530, 30);
 
     if (isGameOver) {
-        ctx.fillText("GAME OVER - Espace pour rejouer", canvas.width/4, canvas.height/2);
-    } else {
-        requestAnimationFrame(gameLoop);
+        // Message Game Over (image sx: 954, sy: 29)
+        ctx.drawImage(sprite, 954, 29, 381, 21, 150, 80, 300, 18);
     }
 }
 
-gameLoop();
+// Attendre que l'image soit chargée avant de démarrer
+sprite.onload = () => { update(); };
