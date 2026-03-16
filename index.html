@@ -1,32 +1,19 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dino Game - Maximus</title>
+    <title>Dino Chrome Replica</title>
     <style>
-        body { 
-            text-align: center; 
-            font-family: 'Courier New', Courier, monospace; 
-            margin: 0; 
-            background-color: #f0f0f0;
-            overflow: hidden; /* Empêche le défilement pendant le jeu */
-        }
-        canvas { 
-            background-color: #fff; 
-            border-bottom: 2px solid #535353; 
-            display: block;
-            margin: 20px auto;
-            max-width: 100%; /* S'adapte à la largeur du téléphone */
-        }
-        h1 { color: #535353; font-size: 20px; }
+        body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f7f7f7; font-family: 'Arial', sans-serif; overflow: hidden; }
+        #game-container { position: relative; width: 600px; height: 200px; }
+        canvas { display: block; background-color: #f7f7f7; }
     </style>
 </head>
 <body>
-    <h1>Score : <span id="scoreVal">0</span></h1>
-    <canvas id="gameCanvas" width="800" height="200"></canvas>
-    <p>Appuie sur ESPACE ou TOUCHE l'écran pour sauter</p>
-
+    <div id="game-container">
+        <canvas id="gameCanvas" width="600" height="200"></canvas>
+    </div>
     <script src="game.js"></script>
 </body>
 </html>
