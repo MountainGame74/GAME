@@ -26,10 +26,10 @@ body {
 #block {
     width: 20px;
     height: 40px;
-    background-color: #f1c40f; /* L'obstacle en jaune */
+    background-color: #f1c40f;
     position: absolute;
     bottom: 0;
-    right: -20px;
+    left: 600px; /* Position de départ hors champ */
 }
 
 /* L'animation du saut */
@@ -49,7 +49,11 @@ body {
     animation: block 1.5s infinite linear;
 }
 
-@keyframes block {
-    0% { right: -20px; }
-    100% { right: 600px; }
+@keyframes #block {
+    width: 20px;
+    height: 40px;
+    background-color: #f1c40f;
+    position: absolute;
+    bottom: 0;
+    left: 600px; /* Position de départ hors champ */
 }
